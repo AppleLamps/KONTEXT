@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kontext</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="main-app">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>Kontext</h1>
+            </div>
+            
+            <div class="sidebar-content">
+                <div class="form-section">
+                    <label for="model-select">Model</label>
+                    <div class="model-selector">
+                        <select id="model-select" aria-label="Model Selection">
+                            <option value="kontext-max-text-to-image">Kontext Max (Text-to-Image)</option>
+                            <option value="kontext">Kontext (Text-to-Image)</option>
+                            <option value="flux-1">FLUX-1 (Text-to-Image, v1)</option>
+                            <option value="hidream-i1-full">Hidream I1 Full (Text-to-Image)</option>
+                            <option value="kontext-edit">Kontext (Image Editing)</option>
+                        <option value="kontext-max" selected>Kontext Max (Image Editing)</option>
+                        <option value="seededit">SeedEdit 3.0 (Image Editing)</option>
+                        <option value="juggernaut-pro">Juggernaut Pro (Image to Image)</option>
+                        <option value="scene-composition">Scene Composition (Image to Scene)</option>
+                        <option value="clarity-upscaler">Clarity Upscaler (Image Enhancement)</option>
+                        <option value="imagen4">Imagen 4 (Fast Preview)</option>
+                            <option value="imagen4-preview">Imagen 4 (Standard Preview)</option>
+                            <option value="minimax-tts">MiniMax TTS (Text-to-Speech)</option>
+                        </select>
+                    </div>
+                    <div class="model-info">
+                        <span class="model-badge">Premium</span>
+                        <span class="model-description">Premium image editing with maximum quality and precision.</span>
+                    </div>
+                </div>
+
+                <div class="form-section" id="image-upload-section" class="hidden">
+                    <label for="image-upload">Upload Image for Editing</label>
+                    <div class="image-upload-container">
+                        <input type="file" id="image-upload" accept="image/*" aria-label="Upload Image">
+                        <div class="image-preview hidden" id="image-preview">
+                            <img id="preview-img" src="" alt="Preview">
+                            <button type="button" id="remove-image" class="btn-remove" title="Remove uploaded image" aria-label="Remove uploaded image">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="upload-placeholder" id="upload-placeholder">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Click to upload an image or drag and drop</p>
+                            <span class="upload-hint">Supports JPG, PNG, WebP</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <label for="prompt">Prompt</label>
+                    <textarea id="prompt" placeholder="Enter your prompt here..." aria-label="Prompt Input"></textarea>
+                </div>
+
+                <div class="form-section">
+                    <label>Number of images</label>
+                    <div id="num-images-group" class="btn-group" role="group" aria-label="Number of images">
+                        <button type="button" class="num-img-btn active" data-value="1">1</button>
+                        <button type="button" class="num-img-btn" data-value="2">2</button>
+                        <button type="button" class="num-img-btn" data-value="3">3</button>
+                        <button type="button" class="num-img-btn" data-value="4">4</button>
+                    </div>
+                    <input type="hidden" id="num-images" value="1">
+                </div>
+
+                <div class="form-section">
+                    <button id="ai-improve" class="btn-secondary" aria-label="AI Improve Prompt">
+                        <i class="fas fa-magic"></i>
+                        AI Improve
+                    </button>
+                </div>
+
+                <div class="form-section">
+                    <button id="generate-btn" class="btn-primary" aria-label="Generate Images">
+                        Generate
+                    </button>
+                </div>
+
+                <div class="form-section hidden" id="juggernaut-section">
+                    <label for="juggernaut-strength">Strength <span id="juggernaut-strength-value">0.95</span></label>
+                    <input type="range" id="juggernaut-strength" min="0" max="1" step="0.01" value="0.95">
+                    
+                    <label for="juggernaut-guidance">Guidance Scale <span id="juggernaut-guidance-value">3.5</span></label>
+                    <input type="range" id="juggernaut-guidance" min="1" max="20" step="0.1" value="3.5">
+                    
+                    <label for="juggernaut-steps">Inference Steps <span id="juggernaut-steps-value">40</span></label>
+                    <input type="range" id="juggernaut-steps" min="1" max="100" step="1" value="40">
+                </div>
+
+                <div class="form-section hidden" id="upscaler-section">
+                    <label for="upscale-factor">Upscale Factor <span id="upscale-factor-value">2</span></label>
+                    <input type="range" id="upscale-factor" min="1" max="4" step="0.1" value="2">
+                    
+                    <label for="creativity">Creativity <span id="creativity-value">0.35</span></label>
+                    <input type="range" id="creativity" min="0" max="1" step="0.01" value="0.35">
+                    
+                    <label for="resemblance">Resemblance <span id="resemblance-value">0.6</span></label>
+                    <input type="range" id="resemblance" min="0" max="1" step="0.01" value="0.6">
+                    
+                    <label for="guidance-scale">Guidance Scale <span id="guidance-scale-value">4</span></label>
+                    <input type="range" id="guidance-scale" min="1" max="20" step="0.1" value="4">
+                    
+                    <label for="inference-steps">Inference Steps <span id="inference-steps-value">18</span></label>
+                    <input type="range" id="inference-steps" min="1" max="50" step="1" value="18">
+                </div>
+
+                <div class="form-section hidden" id="scene-composition-section">
+                    <label for="scene-guidance-scale">Guidance Scale <span id="scene-guidance-scale-value">3.5</span></label>
+                    <input type="range" id="scene-guidance-scale" min="1" max="20" step="0.1" value="3.5">
+                    
+                    <label for="scene-inference-steps">Inference Steps <span id="scene-inference-steps-value">30</span></label>
+                    <input type="range" id="scene-inference-steps" min="1" max="100" step="1" value="30">
+                    
+                    <label for="scene-safety-tolerance">Safety Tolerance <span id="scene-safety-tolerance-value">2</span></label>
+                    <input type="range" id="scene-safety-tolerance" min="1" max="6" step="1" value="2">
+                    
+                    <label for="scene-output-format">Output Format</label>
+                    <select id="scene-output-format">
+                        <option value="jpeg">JPEG</option>
+                        <option value="png">PNG</option>
+                    </select>
+                </div>
+
+                <div class="form-section hidden" id="hidream-section">
+                    <label for="hidream-guidance-scale">Guidance Scale <span id="hidream-guidance-scale-value">5</span></label>
+                    <input type="range" id="hidream-guidance-scale" min="1" max="20" step="0.1" value="5">
+                    
+                    <label for="hidream-inference-steps">Inference Steps <span id="hidream-inference-steps-value">50</span></label>
+                    <input type="range" id="hidream-inference-steps" min="1" max="100" step="1" value="50">
+                    
+                    <label for="hidream-output-format">Output Format</label>
+                    <select id="hidream-output-format">
+                        <option value="jpeg">JPEG</option>
+                        <option value="png">PNG</option>
+                    </select>
+                    
+                    <div class="margin-10-0">
+                        <input type="checkbox" id="hidream-safety-checker" checked>
+                        <label for="hidream-safety-checker">Enable Safety Checker</label>
+                    </div>
+                </div>
+
+                <div class="form-section hidden" id="kontext-max-text-to-image-section">
+                    <label for="kontext-max-guidance-scale">Guidance Scale <span id="kontext-max-guidance-scale-value">3.5</span></label>
+                    <input type="range" id="kontext-max-guidance-scale" min="1" max="20" step="0.1" value="3.5">
+                    
+                    <label for="kontext-max-safety-tolerance">Safety Tolerance <span id="kontext-max-safety-tolerance-value">2</span></label>
+                    <input type="range" id="kontext-max-safety-tolerance" min="1" max="6" step="1" value="2">
+                    
+                    <label for="kontext-max-output-format">Output Format</label>
+                    <select id="kontext-max-output-format">
+                        <option value="jpeg">JPEG</option>
+                        <option value="png">PNG</option>
+                    </select>
+                    
+                    <label for="kontext-max-aspect-ratio">Aspect Ratio</label>
+                    <select id="kontext-max-aspect-ratio">
+                        <option value="21:9">Ultra Wide (21:9)</option>
+                        <option value="16:9" selected>Landscape (16:9)</option>
+                        <option value="4:3">Standard (4:3)</option>
+                        <option value="3:2">Photo (3:2)</option>
+                        <option value="1:1">Square (1:1)</option>
+                        <option value="2:3">Portrait Photo (2:3)</option>
+                        <option value="3:4">Portrait Standard (3:4)</option>
+                        <option value="9:16">Portrait (9:16)</option>
+                        <option value="9:21">Ultra Tall (9:21)</option>
+                    </select>
+                    
+                    <div class="margin-10-0">
+                        <input type="checkbox" id="kontext-max-sync-mode">
+                        <label for="kontext-max-sync-mode">Sync Mode (Higher latency, direct response)</label>
+                    </div>
+                </div>
+
+                <div class="form-section hidden" id="tts-section">
+                    <label for="tts-text">Text to Speech</label>
+                    <textarea id="tts-text" placeholder="Enter text to convert to speech"></textarea>
+
+                    <label for="tts-voice">Voice</label>
+                    <div class="voice-selector">
+                        <select id="tts-voice">
+                            <optgroup label="Built-in Voices" id="built-in-voices-group">
+                                <option value="Aurora">Aurora</option>
+                                <option value="Blade">Blade</option>
+                                <option value="Britney">Britney</option>
+                                <option value="Carl">Carl</option>
+                                <option value="Cliff">Cliff</option>
+                                <option value="Richard">Richard</option>
+                                <option value="Rico">Rico</option>
+                                <option value="Siobhan">Siobhan</option>
+                                <option value="Vicky">Vicky</option>
+                            </optgroup>
+                            <optgroup label="My Cloned Voices" id="cloned-voices-group">
+                                <!-- Populated by JS -->
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <div id="voice-clone-section">
+                        <label for="tts-voice-upload">Upload audio to clone a new voice</label>
+                        <input type="file" id="tts-voice-upload" accept="audio/*">
+                        <input type="text" id="voice-name-input" placeholder="Name this voice (optional)">
+                        <button id="clone-voice-btn" class="btn-secondary">Add New Voice</button>
+                    </div>
+                    <div id="voice-clone-status"></div>
+
+                    <div class="margin-top-12">
+                        <label for="tts-exaggeration">Exaggeration <span id="exaggeration-value">0.5</span></label>
+                        <input type="range" id="tts-exaggeration" min="0.25" max="2.0" step="0.01" value="0.5">
+                        <label for="tts-cfg">CFG <span id="cfg-value">0.5</span></label>
+                        <input type="range" id="tts-cfg" min="0.2" max="1.0" step="0.01" value="0.5">
+                        <label for="tts-temperature">Temperature <span id="temperature-value">0.8</span></label>
+                        <input type="range" id="tts-temperature" min="0.05" max="5" step="0.01" value="0.8">
+                    </div>
+                    <div class="margin-10-0">
+                        <input type="checkbox" id="tts-high-quality">
+                        <label for="tts-high-quality">High Quality Audio (48kHz)</label>
+                    </div>
+                    <button id="tts-generate-btn" class="btn-primary" aria-label="Generate Audio">
+                        <i class="fas fa-volume-up"></i> Speak
+                    </button>
+                    <audio id="tts-audio" controls class="audio-style"></audio>
+                </div>
+
+                <div class="form-section">
+                    <div class="advanced-options">
+                        <button class="btn-advanced" aria-label="Toggle Advanced Options">
+                            <i class="fas fa-cog"></i>
+                            Advanced Options
+                        </button>
+                        <div class="advanced-content hidden">
+                            <div class="option-group">
+                                <label for="aspect-ratio">Aspect Ratio</label>
+                                <select id="aspect-ratio">
+                                    <option value="1:1">Square (1:1)</option>
+                                    <option value="16:9" selected>Landscape (16:9)</option>
+                                    <option value="9:16">Portrait (9:16)</option>
+                                    <option value="4:3">Standard (4:3)</option>
+                                    <option value="3:2">Photo (3:2)</option>
+                                    <option value="2:3">Portrait Photo (2:3)</option>
+                                    <option value="3:4">Portrait Standard (3:4)</option>
+                                    <option value="21:9">Ultra Wide (21:9)</option>
+                                    <option value="9:21">Ultra Tall (9:21)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="content-header">
+                <div class="header-controls">
+                    <div class="tag-controls">
+                        <button class="tag-btn active">
+                            <i class="fas fa-tag"></i>
+                            Tag
+                        </button>
+                        <button class="tag-btn">
+                            <i class="fas fa-history"></i>
+                            History
+                        </button>
+                    </div>
+                    <div class="bulk-actions" id="bulk-actions" class="hidden">
+                        <button class="bulk-btn" id="select-all-btn" onclick="selectAllImages()" title="Select All">
+                            <i class="fas fa-check-square"></i>
+                            Select All
+                        </button>
+                        <button class="bulk-btn" id="deselect-all-btn" onclick="deselectAllImages()" title="Deselect All">
+                            <i class="fas fa-square"></i>
+                            Deselect All
+                        </button>
+                        <button class="bulk-btn bulk-btn-delete" id="delete-selected-btn" onclick="deleteSelectedImages()" title="Delete Selected">
+                            <i class="fas fa-trash"></i>
+                            Delete Selected
+                        </button>
+                    </div>
+                    <div class="view-controls">
+                        <div class="zoom-slider">
+                            <i class="fas fa-search-minus"></i>
+                            <input type="range" id="zoom-slider" min="50" max="150" value="100" title="Zoom level" aria-label="Zoom level">
+                            <i class="fas fa-search-plus"></i>
+                        </div>
+                        <button class="view-btn" title="Grid view (Masonry Layout)" aria-label="Grid view">
+                            <i class="fas fa-th"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="gallery-container">
+                <div class="gallery-grid" id="gallery-grid">
+                    <div class="empty-state" id="empty-state">
+                        <i class="fas fa-images"></i>
+                        <h3>No images generated yet</h3>
+                        <p>Enter a prompt and click Generate to create your first image</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="script.js"></script>
+</body>
+</html> 
