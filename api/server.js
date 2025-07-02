@@ -19,6 +19,7 @@ fal.config({
 });
 
 const app = express();
+const router = express.Router(); // Create a new router
 const port = 3000;
 
 // Middleware
@@ -28,7 +29,7 @@ app.use(express.json()); // Parse JSON bodies
 // app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Handle favicon.ico requests to prevent 404 errors
-app.get('/favicon.ico', (req, res) => {
+router.get('/favicon.ico', (req, res) => {
     res.status(204).end(); // No content response
 });
 
@@ -108,7 +109,7 @@ async function saveImageToHistory(imageUrl, metadata) {
 }
 
 // Route to get photo history from Vercel KV
-app.get('/history', async (req, res) => {
+router.get('/history', async (req, res) => {
     try {
         const imageJsonStrings = await kv.lrange('images', 0, -1);
         const history = imageJsonStrings.map(str => JSON.parse(str));
@@ -120,7 +121,7 @@ app.get('/history', async (req, res) => {
 });
 
 // Route to delete image from Vercel Blob and KV
-app.delete('/history/:imageId', async (req, res) => {
+router.delete('/history/:imageId', async (req, res) => {
     try {
         const imageId = req.params.imageId;
         const imageJsonStrings = await kv.lrange('images', 0, -1);
@@ -146,7 +147,7 @@ app.delete('/history/:imageId', async (req, res) => {
 });
 
 // Route to upload image to Fal storage
-app.post('/upload', upload.single('file'), async (req, res) => {
+router.post('/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -167,7 +168,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 // Route to upload audio files to Vercel Blob storage
-app.post('/upload-audio', audioUpload.single('file'), async (req, res) => {
+router.post('/upload-audio', audioUpload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No audio file uploaded' });
@@ -185,7 +186,7 @@ app.post('/upload-audio', audioUpload.single('file'), async (req, res) => {
 });
 
 // Route to clone voice using MiniMax API
-app.post('/clone-voice', async (req, res) => {
+router.post('/clone-voice', async (req, res) => {
     try {
         const { audio_url } = req.body;
         if (!audio_url) return res.status(400).json({ error: 'No audio_url provided' });
@@ -207,7 +208,7 @@ app.post('/clone-voice', async (req, res) => {
 });
 
 // Route to edit image using Flux Kontext API
-app.post('/edit', upload.single('image'), async (req, res) => {
+router.post('/edit', upload.single('image'), async (req, res) => {
     try {
         const imagePath = req.file.path;
         const prompt = req.body.prompt;
@@ -253,7 +254,7 @@ app.post('/edit', upload.single('image'), async (req, res) => {
 });
 
 // Route to enhance prompt using xAI Grok-2 Vision API
-app.post('/enhance-prompt', async (req, res) => {
+router.post('/enhance-prompt', async (req, res) => {
     try {
         const { prompt, image_url } = req.body;
 
@@ -309,7 +310,7 @@ app.post('/enhance-prompt', async (req, res) => {
     }
 });
 
-app.post('/generate', async (req, res) => {
+router.post('/generate', async (req, res) => {
     try {
         console.log('Received generate request:', req.body);
         console.log('Image URL in request:', req.body.image_url);
@@ -622,7 +623,7 @@ app.post('/generate', async (req, res) => {
 });
 
 // Route to upload voice file for voice cloning
-app.post('/upload-voice', upload.single('file'), async (req, res) => {
+router.post('/upload-voice', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
@@ -643,7 +644,7 @@ app.post('/upload-voice', upload.single('file'), async (req, res) => {
 });
 
 // Route for text-to-speech using MiniMax Speech-02 Turbo
-app.post('/tts', async (req, res) => {
+router.post('/tts', async (req, res) => {
     try {
         const {
             text,
@@ -684,6 +685,9 @@ app.post('/tts', async (req, res) => {
         res.status(500).json({ error: 'Failed to generate audio', details: err.message || err });
     }
 });
+
+// Mount the router under the /api path
+app.use('/api', router);
 
 // Centralized error handling middleware
 app.use((err, req, res, next) => {
