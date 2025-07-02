@@ -45,6 +45,12 @@ const falApiKey = process.env.FAL_API_KEY;
 // IMPORTANT: Use environment variable for xAI API key in production
 const xaiApiKey = process.env.XAI_API_KEY;
 
+// Define and ensure audio directory exists
+const audioDir = path.join(process.cwd(), 'audio');
+if (!fs.existsSync(audioDir)) {
+    fs.mkdirSync(audioDir, { recursive: true });
+}
+
 // NEW version of saveImageToHistory using Vercel Blob
 async function saveImageToHistory(imageUrl, metadata) {
     try {
