@@ -26,7 +26,6 @@ app.use(cors()); // Enable CORS for frontend requests
 app.use(express.json()); // Parse JSON bodies
 // Serve only static assets (like .js, .css, images) from the public directory
 // app.use(express.static(path.join(process.cwd(), 'public')));
-// app.use('/audio', express.static(audioDir)); // Serve audio files
 
 // Handle favicon.ico requests to prevent 404 errors
 app.get('/favicon.ico', (req, res) => {
@@ -37,7 +36,7 @@ app.get('/favicon.ico', (req, res) => {
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Multer setup for audio uploads
-const audioUpload = multer({ dest: audioDir });
+const audioUpload = multer({ storage: multer.memoryStorage() });
 
 // IMPORTANT: Use environment variable for FAL API key in production
 const falApiKey = process.env.FAL_API_KEY;
@@ -45,10 +44,20 @@ const falApiKey = process.env.FAL_API_KEY;
 // IMPORTANT: Use environment variable for xAI API key in production
 const xaiApiKey = process.env.XAI_API_KEY;
 
-// Define and ensure audio directory exists
-const audioDir = path.join(process.cwd(), 'audio');
-if (!fs.existsSync(audioDir)) {
-    fs.mkdirSync(audioDir, { recursive: true });
+// Helper function to create thumbnails using Sharp
+async function createThumbnail(imageBuffer) {
+    try {
+        return await sharp(imageBuffer)
+            .resize(400, 400, { 
+                fit: 'inside',
+                withoutEnlargement: true 
+            })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+    } catch (error) {
+        console.error('Error creating thumbnail:', error);
+        return null; // Return null if thumbnail creation fails
+    }
 }
 
 // NEW version of saveImageToHistory using Vercel Blob
@@ -181,38 +190,10 @@ app.post('/clone-voice', async (req, res) => {
         const { audio_url } = req.body;
         if (!audio_url) return res.status(400).json({ error: 'No audio_url provided' });
         
-        // Check if the audio_url is a local URL and needs to be uploaded to fal.ai storage
-        let falAudioUrl = audio_url;
-        if (audio_url.includes('localhost') || audio_url.startsWith('/')) {
-            // Extract the filename from the local URL
-            const filename = audio_url.split('/').pop();
-            const localFilePath = path.join(audioDir, filename);
-            
-            if (!fs.existsSync(localFilePath)) {
-                return res.status(400).json({ error: 'Audio file not found' });
-            }
-            
-            // Read the local audio file and upload it to fal.ai storage
-            const audioBuffer = fs.readFileSync(localFilePath);
-            
-            // Determine MIME type based on file extension
-            let mimeType = 'audio/wav';
-            const ext = path.extname(filename).toLowerCase();
-            if (ext === '.mp3') mimeType = 'audio/mpeg';
-            else if (ext === '.m4a') mimeType = 'audio/mp4';
-            else if (ext === '.ogg') mimeType = 'audio/ogg';
-            else if (ext === '.flac') mimeType = 'audio/flac';
-            
-            const audioFile = new File([audioBuffer], filename, {
-                type: mimeType
-            });
-            
-            falAudioUrl = await fal.storage.upload(audioFile);
-            console.log('Uploaded audio to fal.ai storage:', falAudioUrl);
-        }
-        
+        // Since audio files are now uploaded directly to Vercel Blob,
+        // we can use the audio_url directly with the fal.ai voice cloning service
         const result = await fal.subscribe("fal-ai/minimax/voice-clone", {
-            input: { audio_url: falAudioUrl }
+            input: { audio_url: audio_url }
         });
         
         const { custom_voice_id } = result.data;
