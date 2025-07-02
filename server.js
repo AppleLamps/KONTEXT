@@ -19,12 +19,16 @@ fal.config({
 });
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
-// Create audio directory if it doesn't exist
+// Create audio directory if it doesn't exist (only in local environment)
 const audioDir = path.join(process.cwd(), 'audio');
-if (!fs.existsSync(audioDir)) {
-    fs.mkdirSync(audioDir, { recursive: true });
+if (process.env.NODE_ENV !== 'production' && !fs.existsSync(audioDir)) {
+    try {
+        fs.mkdirSync(audioDir, { recursive: true });
+    } catch (error) {
+        console.warn('Could not create audio directory:', error);
+    }
 }
 
 // Middleware
@@ -41,14 +45,42 @@ app.get('/favicon.ico', (req, res) => {
 // Multer setup for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Multer setup for audio uploads
-const audioUpload = multer({ dest: 'audio/' });
-
 // IMPORTANT: Use environment variable for FAL API key in production
 const falApiKey = process.env.FAL_API_KEY;
 
 // IMPORTANT: Use environment variable for xAI API key in production
 const xaiApiKey = process.env.XAI_API_KEY;
+
+// Function to create thumbnail from image buffer
+async function createThumbnail(imageBuffer) {
+    try {
+        const thumbnail = await sharp(imageBuffer)
+            .resize(300, 300, {
+                fit: 'inside',
+                withoutEnlargement: true
+            })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+        return thumbnail;
+    } catch (error) {
+        console.error('Error creating thumbnail:', error);
+        return null; // Return null if thumbnail creation fails
+    }
+}
+
+// Mock function for Fal API call (placeholder for actual implementation)
+async function mockFalApiCall(payload) {
+    // This is a placeholder function - replace with actual Fal API implementation
+    console.log('Mock Fal API call with payload:', payload);
+    return {
+        success: true,
+        images: [{
+            url: 'https://example.com/mock-image.jpg',
+            width: 1024,
+            height: 1024
+        }]
+    };
+}
 
 // NEW version of saveImageToHistory using Vercel Blob
 async function saveImageToHistory(imageUrl, metadata) {
@@ -157,15 +189,12 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 // Route to upload audio files to Vercel Blob storage
-app.post('/upload-audio', audioUpload.single('file'), async (req, res) => {
+app.post('/upload-audio', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No audio file uploaded' });
         }
         // Upload audio file to Vercel Blob
-        const file = new File([req.file.buffer], req.file.originalname, {
-            type: req.file.mimetype
-        });
         const audioBlob = await put(`audio_${Date.now()}_${req.file.originalname}`, req.file.buffer, { access: 'public', addRandomSuffix: false });
         res.json({ url: audioBlob.url, filename: req.file.originalname });
     } catch (error) {
@@ -180,34 +209,41 @@ app.post('/clone-voice', async (req, res) => {
         const { audio_url } = req.body;
         if (!audio_url) return res.status(400).json({ error: 'No audio_url provided' });
         
-        // Check if the audio_url is a local URL and needs to be uploaded to fal.ai storage
+        // For production, audio_url should already be a valid URL (from Vercel Blob or external)
         let falAudioUrl = audio_url;
-        if (audio_url.includes('localhost') || audio_url.startsWith('/')) {
-            // Extract the filename from the local URL
-            const filename = audio_url.split('/').pop();
-            const localFilePath = path.join(audioDir, filename);
-            
-            if (!fs.existsSync(localFilePath)) {
-                return res.status(400).json({ error: 'Audio file not found' });
+        
+        // Only handle local file system operations in development
+        if (process.env.NODE_ENV !== 'production' && (audio_url.includes('localhost') || audio_url.startsWith('/'))) {
+            try {
+                // Extract the filename from the local URL
+                const filename = audio_url.split('/').pop();
+                const localFilePath = path.join(audioDir, filename);
+                
+                if (!fs.existsSync(localFilePath)) {
+                    return res.status(400).json({ error: 'Audio file not found' });
+                }
+                
+                // Read the local audio file and upload it to fal.ai storage
+                const audioBuffer = fs.readFileSync(localFilePath);
+                
+                // Determine MIME type based on file extension
+                let mimeType = 'audio/wav';
+                const ext = path.extname(filename).toLowerCase();
+                if (ext === '.mp3') mimeType = 'audio/mpeg';
+                else if (ext === '.m4a') mimeType = 'audio/mp4';
+                else if (ext === '.ogg') mimeType = 'audio/ogg';
+                else if (ext === '.flac') mimeType = 'audio/flac';
+                
+                const audioFile = new File([audioBuffer], filename, {
+                    type: mimeType
+                });
+                
+                falAudioUrl = await fal.storage.upload(audioFile);
+                console.log('Uploaded audio to fal.ai storage:', falAudioUrl);
+            } catch (error) {
+                console.error('Error handling local audio file:', error);
+                return res.status(500).json({ error: 'Failed to process local audio file' });
             }
-            
-            // Read the local audio file and upload it to fal.ai storage
-            const audioBuffer = fs.readFileSync(localFilePath);
-            
-            // Determine MIME type based on file extension
-            let mimeType = 'audio/wav';
-            const ext = path.extname(filename).toLowerCase();
-            if (ext === '.mp3') mimeType = 'audio/mpeg';
-            else if (ext === '.m4a') mimeType = 'audio/mp4';
-            else if (ext === '.ogg') mimeType = 'audio/ogg';
-            else if (ext === '.flac') mimeType = 'audio/flac';
-            
-            const audioFile = new File([audioBuffer], filename, {
-                type: mimeType
-            });
-            
-            falAudioUrl = await fal.storage.upload(audioFile);
-            console.log('Uploaded audio to fal.ai storage:', falAudioUrl);
         }
         
         const result = await fal.subscribe("fal-ai/minimax/voice-clone", {
@@ -227,7 +263,10 @@ app.post('/clone-voice', async (req, res) => {
 // Route to edit image using Flux Kontext API
 app.post('/edit', upload.single('image'), async (req, res) => {
     try {
-        const imagePath = req.file.path;
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded' });
+        }
+        
         const prompt = req.body.prompt;
         const photoCount = parseInt(req.body.photoCount);
         
@@ -238,8 +277,8 @@ app.post('/edit', upload.single('image'), async (req, res) => {
         const outputFormat = req.body.outputFormat;
         const resolutionMode = req.body.resolutionMode;
         
-        // Read the image file as a buffer
-        const imageBuffer = fs.readFileSync(imagePath);
+        // Use the image buffer directly (no filesystem operations needed)
+        const imageBuffer = req.file.buffer;
         
         // Prepare payload for Fal API
         const payload = {
@@ -258,9 +297,6 @@ app.post('/edit', upload.single('image'), async (req, res) => {
         // Call Fal API (mocked here)
         console.log('Sending payload to Fal API:', payload);
         const falResponse = await mockFalApiCall(payload);
-        
-        // Clean up the uploaded file
-        fs.unlinkSync(imagePath);
         
         // Return the result to the client
         res.json(falResponse);
@@ -751,7 +787,12 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-// Start the server
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-}); 
+// Export the app for Vercel
+export default app;
+
+// Start the server (only in development)
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(port, () => {
+        console.log(`Server running on http://localhost:${port}`);
+    });
+} 
