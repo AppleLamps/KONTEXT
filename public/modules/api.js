@@ -189,28 +189,4 @@ export async function deleteImage(imageId) {
         console.error('Error deleting image:', error);
         throw error;
     }
-}
-
-export async function saveImageToHistory(imageData, prompt) {
-    try {
-        const response = await fetch('/api/save-image-metadata', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                image: imageData,
-                prompt: prompt
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Failed to save image: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Error saving image to history:', error);
-        throw error;
-    }
 } 
