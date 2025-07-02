@@ -21,18 +21,12 @@ fal.config({
 const app = express();
 const port = 3000;
 
-// Create audio directory if it doesn't exist
-const audioDir = '/tmp/audio';
-if (!fs.existsSync(audioDir)) {
-    fs.mkdirSync(audioDir, { recursive: true });
-}
-
 // Middleware
 app.use(cors()); // Enable CORS for frontend requests
 app.use(express.json()); // Parse JSON bodies
 // Serve only static assets (like .js, .css, images) from the public directory
-app.use(express.static(path.join(process.cwd(), 'public')));
-app.use('/audio', express.static(audioDir)); // Serve audio files
+// app.use(express.static(path.join(process.cwd(), 'public')));
+// app.use('/audio', express.static(audioDir)); // Serve audio files
 
 // Handle favicon.ico requests to prevent 404 errors
 app.get('/favicon.ico', (req, res) => {
@@ -750,11 +744,6 @@ app.use((err, req, res, next) => {
 // Handle 404 for undefined routes
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
-});
-
-// Serve index.html for the root route
-app.get('/', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
 });
 
 // Export the app for Vercel serverless deployment
